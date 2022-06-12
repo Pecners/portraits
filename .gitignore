@@ -4,4 +4,4 @@
 .Ruserdata
 plots/*
 data/*
-.DS_Store
+*.DS_Store
