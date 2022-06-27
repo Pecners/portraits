@@ -25,22 +25,22 @@ mat <- raster_to_matrix(zelev)
 
 # elevation range in ft, converted from meters
 
-elev_range <- (max(hm, na.rm = TRUE) - min(hm, na.rm = TRUE)) * 3.281
+elev_range <- (max(mat, na.rm = TRUE) - min(mat, na.rm = TRUE)) * 3.281
 
 small <- rayshader::resize_matrix(hm, .25)
 
 strip <- function(m, h) {
   for (nrow in 1:nrow(m)) {
     for (ncol in 1:ncol(m)) {
-      if (!is.na(m[nrow,ncol]) & m[nrow,ncol] > h) {
-        m[nrow,ncol] <- NA
+      if (!is.na(m[nrow,ncol])) {
+        m[nrow,ncol] <- m[nrow,ncol] * -1
       } 
     }
   }
   return(m)
 }
 
-new <- strip(mat, 1750)
+new <- strip(small, 1750)
 
 hm <- new
 w <- nrow(hm)
@@ -75,15 +75,13 @@ hm %>%
   #add_shadow() %>%
   #add_shadow(ray_shade(hm, multicore = TRUE, sunaltitude = 80)) %>%
   plot_3d(heightmap = hm, solid = FALSE, zscale = 10,
-          windowsize = c(800*wr,800*hr), shadowdepth = -300,
+          windowsize = c(800*wr,800*hr), 
+          #shadowdepth = -300,
           #shadowwidth = 100, 
           shadowcolor = colors[1],
           phi = 90, zoom = .7, theta = 0, background = "white") 
 
 
-render_animation(scene = ,filename = NA, camera_motion = camera_motion, samples=100,
-                 sample_method="sobol_blue",  
-                 clamp_value=10, width=400, height=400)
 {
   glue("plots/{map}_{pal}_deepshad.png")
   render_highquality(
