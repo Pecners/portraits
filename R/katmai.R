@@ -12,27 +12,32 @@ library(grid)
 library(svgparser)
 library(rnaturalearth)
 library(rnaturalearthdata)
+library(ggstar)
 
-map <- "denali"
+map <- "katmai"
 
-
-data <- st_read("data/nps_boundary/nps_boundary.shp") %>%
-  filter(str_detect(PARKNAME, "Denali")) %>%
+data <- st_read("data/katm_tracts/KATM_boundary.shp") %>%
   st_transform(crs = 3338)
 
-data %>%
+data[1,] %>%
   ggplot() +
   geom_sf() +
+  geom_sf(data = data[2,], fill = "red") +
   coord_sf(crs = 4326)
 
-z <- 10
+# Plotted with z = 11, got max elev with z = 12
 
-zelev <- get_elev_raster(data, z = z, clip = "location")
+zelev <- get_elev_raster(data, z = 12, clip = "location")
 
 # Square miles from square meters
 
 area <- as.numeric(st_area(st_union(data))) / 2.59e+6
 mat <- raster_to_matrix(zelev)
+sum(mat < 0, na.rm = TRUE)
+sum(mat == 0, na.rm = TRUE)
+mat[which(mat < 0)] <- 0
+sum(mat < 0, na.rm = TRUE)
+sum(mat == 0, na.rm = TRUE)
 
 # elevation range in ft, converted from meters
 
@@ -44,10 +49,11 @@ high <- max(mat, na.rm = TRUE) * 3.281
 
 
 hm <- mat
+rm(mat)
 
 w <- nrow(hm)
 h <- ncol(hm)
- 
+
 wr <- w / max(c(w,h))
 hr <- h / max(c(w,h))
 
@@ -64,16 +70,16 @@ hm %>%
   #add_shadow(lamb_shade(hm)) %>%
   #add_shadow() %>%
   #add_shadow(ray_shade(hm, multicore = TRUE, sunaltitude = 80)) %>%
-  plot_3d(heightmap = hm, solid = FALSE, zscale = 10,
-          shadowdepth = -5000,
+  plot_3d(heightmap = hm, solid = FALSE, zscale = 5,
+          shadowdepth = -1000,
           windowsize = c(800*wr,800*hr), 
           #shadowwidth = 100, 
           #shadowcolor = colors[1],
-          phi = 90, zoom = 1, theta = 0, background = "white") 
+          phi = 90, zoom = .8, theta = 0, background = "white") 
 
-render_camera(phi = 90, zoom = 1, theta = 0)
+render_camera(phi = 90, zoom = .9, theta = 0)
 
-outfile <- glue("plots/{map}_{pal}_z{z}.png")
+outfile <- glue("plots/{map}_{pal}_z10.png")
 
 {
   outfile
@@ -110,7 +116,7 @@ add_stuff <- function(pal, map, c, c_fun, t, markups = TRUE) {
   img <- image_read(glue("plots/{map}_{pal}_z10.png"))
   
   # Title
-  img_ <- image_annotate(img, "Denali", weight = 700, 
+  img_ <- image_annotate(img, "Katmai", weight = 700, 
                          font = "Cinzel Decorative", location = "-1950+300",
                          color = text_color, size = 400, gravity = "north")
   
@@ -151,24 +157,24 @@ add_stuff <- function(pal, map, c, c_fun, t, markups = TRUE) {
     #                        font = "Cinzel Decorative", location = "-1750+1000",
     #                        color = text_color, size = 80, gravity = "north")
     # 
-    world <- ne_countries(scale = "medium", returnclass = "sf")
+    na <- world %>%
+      filter(continent == "North America")
     
     water <- st_sfc(st_point(c(50, -150)), crs = "+proj=ortho +lat_0=50 +lon_0=-150") %>%
       st_buffer(., 6400000)
     
-    spot <- st_centroid(data[1,])
     
     loc_plot <- ggplot(data = world) +
       geom_sf(data = water, color = NA, fill = alpha(colors[2], .75)) +
       geom_sf(fill = "#ffd46d", size = .1, color = "grey40") +
       geom_sf(data = spot, fill = colors[1], stroke = 0,
-              size = 6, shape = 21) +
-      geom_sf(data = spot, fill = colors[2], stroke = 0,
               size = 5, shape = 21) +
-      geom_sf(data = spot, fill = colors[3], stroke = 0,
+      geom_sf(data = spot, fill = colors[2], stroke = 0,
               size = 4, shape = 21) +
-      geom_sf(data = spot, fill = colors[4], stroke = 0,
+      geom_sf(data = spot, fill = colors[3], stroke = 0,
               size = 3, shape = 21) +
+      geom_sf(data = spot, fill = colors[4], stroke = 0,
+              size = 2, shape = 21) +
       coord_sf(crs = "+proj=ortho +lat_0=50 +lon_0=-150") +
       theme_void() 
     
@@ -177,7 +183,7 @@ add_stuff <- function(pal, map, c, c_fun, t, markups = TRUE) {
     inset <- image_read(glue("plots/{map}_inset.png"))
     new_inset <- image_scale(inset, "x1000")
     img_ <- image_composite(img_, new_inset, gravity = "south",
-                            offset = "+1750+700")
+                            offset = "+1850+600")
   }
   
   image_write(img_, glue("plots/{map}_titled_{pal}_highres.png"))
@@ -186,5 +192,5 @@ add_stuff <- function(pal, map, c, c_fun, t, markups = TRUE) {
   
 }
 
-add_stuff(pal = "flag", map = "denali", c = 8, c_fun = colors, t = 1, markups = TRUE)
+add_stuff(pal = "flag", map = "katmai", c = 8, c_fun = colors, t = 1, markups = TRUE)
 #add_stuff(pal = "custom", map = "seattle", c = 8, c_fun = colors, t = 1, markups = FALSE)

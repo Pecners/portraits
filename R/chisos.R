@@ -13,19 +13,18 @@ library(svgparser)
 library(rnaturalearth)
 library(rnaturalearthdata)
 
-map <- "denali"
+map <- "chisos"
 
+data <- st_sfc(st_point(c(-103.289445, 29.256026)), crs = 4326) %>%
+  st_transform(crs = 3081) %>%
+  st_buffer(10000)
 
-data <- st_read("data/nps_boundary/nps_boundary.shp") %>%
-  filter(str_detect(PARKNAME, "Denali")) %>%
-  st_transform(crs = 3338)
+# data %>%
+#   ggplot() +
+#   geom_sf() +
+#   coord_sf()
 
-data %>%
-  ggplot() +
-  geom_sf() +
-  coord_sf(crs = 4326)
-
-z <- 10
+z <- 14
 
 zelev <- get_elev_raster(data, z = z, clip = "location")
 
@@ -42,36 +41,38 @@ high <- max(mat, na.rm = TRUE) * 3.281
 
 #small <- rayshader::resize_matrix(hm, .25)
 
+mat[mat < 1524] <- NA
+nona <- mat[rowSums(is.na(mat)) != ncol(mat), colSums(is.na(mat)) != nrow(mat)]
 
-hm <- mat
+hm <- nona
 
 w <- nrow(hm)
 h <- ncol(hm)
- 
+
 wr <- w / max(c(w,h))
 hr <- h / max(c(w,h))
 
-pal <- "flag"
+pal <- "tam"
 #3871ef light blue
 #061B4A true blue from flag
-colors <- c("#061B4A", "#3871ef", "#FFB70B", "white")
+colors <- met.brewer("Tam")
 
 rgl::rgl.close()
 
 hm %>%
-  height_shade(texture = grDevices::colorRampPalette(colors, bias = 2.5)(256)) %>%
+  height_shade(texture = grDevices::colorRampPalette(rev(c("white", colors[1:6], "white")), bias = .5)(256)) %>%
   #height_shade(texture = (grDevices::colorRampPalette(colors))(256)) %>%
   #add_shadow(lamb_shade(hm)) %>%
   #add_shadow() %>%
   #add_shadow(ray_shade(hm, multicore = TRUE, sunaltitude = 80)) %>%
-  plot_3d(heightmap = hm, solid = FALSE, zscale = 10,
-          shadowdepth = -5000,
+  plot_3d(heightmap = hm, solid = FALSE, zscale = 3,
+          #shadowdepth = -1000,
           windowsize = c(800*wr,800*hr), 
           #shadowwidth = 100, 
           #shadowcolor = colors[1],
           phi = 90, zoom = 1, theta = 0, background = "white") 
 
-render_camera(phi = 90, zoom = 1, theta = 0)
+render_camera(phi = 90, zoom = .8, theta = 0)
 
 outfile <- glue("plots/{map}_{pal}_z{z}.png")
 
@@ -83,13 +84,15 @@ outfile <- glue("plots/{map}_{pal}_z{z}.png")
     outfile, parallel = TRUE, 
     samples = 300, 
     light = FALSE, interactive = FALSE,
+    # backgroundhigh = colors[1],
     #ambient_light = TRUE, backgroundhigh = colors[1],
     environment_light = "../bathybase/env/phalzer_forest_01_4k.hdr",
-    intensity_env = 2,
+    intensity_env = 1.75,
     rotate_env = 80,
     width = round(6000 * wr), height = round(6000 * hr)
   )
   end_time <- Sys.time()
+  cat(glue("Time elapsed: {start_time - end_time}"))
 }
 
 
@@ -107,17 +110,17 @@ add_stuff <- function(pal, map, c, c_fun, t, markups = TRUE) {
   
   text_color <- colors[t]
   
-  img <- image_read(glue("plots/{map}_{pal}_z10.png"))
+  img <- image_read(glue("plots/{map}_{pal}_z{z}.png"))
   
   # Title
-  img_ <- image_annotate(img, "Denali", weight = 700, 
-                         font = "Cinzel Decorative", location = "-1950+300",
-                         color = text_color, size = 400, gravity = "north")
+  img_ <- image_annotate(img, "Chisos Mountains", weight = 700, 
+                         font = "Cinzel Decorative", location = "+1600+2400",
+                         color = text_color, size = 175, gravity = "south")
   
   # Subtitle
-  img_ <- image_annotate(img_, "National Park\nand Preserve", font = "Cinzel Decorative",
-                         color = text_color, size = 125, gravity = "north",
-                         location = "-1950+900")
+  img_ <- image_annotate(img_, "A Portrait of the", font = "Cinzel Decorative",
+                         color = text_color, size = 100, gravity = "south",
+                         location = "+1600+2700")
   
   twitter <- fa("twitter", fill = text_color, fill_opacity = .5)
   grid.newpage()
@@ -153,31 +156,34 @@ add_stuff <- function(pal, map, c, c_fun, t, markups = TRUE) {
     # 
     world <- ne_countries(scale = "medium", returnclass = "sf")
     
-    water <- st_sfc(st_point(c(50, -150)), crs = "+proj=ortho +lat_0=50 +lon_0=-150") %>%
+    prj <- "+proj=ortho +lat_0=20 +lon_0=-100"
+    
+    water <- st_sfc(st_point(c(50, -150)), crs = prj) %>%
       st_buffer(., 6400000)
     
-    spot <- st_centroid(data[1,])
+    spot <- st_centroid(data)
     
     loc_plot <- ggplot(data = world) +
-      geom_sf(data = water, color = NA, fill = alpha(colors[2], .75)) +
-      geom_sf(fill = "#ffd46d", size = .1, color = "grey40") +
-      geom_sf(data = spot, fill = colors[1], stroke = 0,
-              size = 6, shape = 21) +
-      geom_sf(data = spot, fill = colors[2], stroke = 0,
-              size = 5, shape = 21) +
-      geom_sf(data = spot, fill = colors[3], stroke = 0,
-              size = 4, shape = 21) +
+      geom_sf(data = water, color = NA, fill = alpha(text_color, .75)) +
+      geom_sf(fill = "white", size = .1, color = "grey40") +
+      geom_sf(fill = alpha(colors[2], .75), size = .1, color = "grey40") +
       geom_sf(data = spot, fill = colors[4], stroke = 0,
+              size = 6, shape = 21) +
+      geom_sf(data = spot, fill = colors[3], stroke = 0,
+              size = 5, shape = 21) +
+      geom_sf(data = spot, fill = colors[2], stroke = 0,
+              size = 4, shape = 21) +
+      geom_sf(data = spot, fill = "white", stroke = 0,
               size = 3, shape = 21) +
-      coord_sf(crs = "+proj=ortho +lat_0=50 +lon_0=-150") +
+      coord_sf(crs = prj) +
       theme_void() 
     
     loc_plot
     ggsave(loc_plot, filename = glue("plots/{map}_inset.png"), w = 4*1.5, h = 3*1.5)
     inset <- image_read(glue("plots/{map}_inset.png"))
-    new_inset <- image_scale(inset, "x1000")
+    new_inset <- image_scale(inset, "x750")
     img_ <- image_composite(img_, new_inset, gravity = "south",
-                            offset = "+1750+700")
+                            offset = "+1600+1300")
   }
   
   image_write(img_, glue("plots/{map}_titled_{pal}_highres.png"))
@@ -186,5 +192,5 @@ add_stuff <- function(pal, map, c, c_fun, t, markups = TRUE) {
   
 }
 
-add_stuff(pal = "flag", map = "denali", c = 8, c_fun = colors, t = 1, markups = TRUE)
+add_stuff(pal = "Tam", map = "chisos", c = 8, c_fun = "met", t = 6, markups = TRUE)
 #add_stuff(pal = "custom", map = "seattle", c = 8, c_fun = colors, t = 1, markups = FALSE)

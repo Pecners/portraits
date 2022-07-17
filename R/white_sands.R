@@ -13,19 +13,19 @@ library(svgparser)
 library(rnaturalearth)
 library(rnaturalearthdata)
 
-map <- "denali"
+map <- "white_sands"
 
 
 data <- st_read("data/nps_boundary/nps_boundary.shp") %>%
-  filter(str_detect(PARKNAME, "Denali")) %>%
-  st_transform(crs = 3338)
+  filter(str_detect(PARKNAME, "White Sand")) %>%
+  st_transform(crs = 4326)
 
 data %>%
   ggplot() +
   geom_sf() +
   coord_sf(crs = 4326)
 
-z <- 10
+z <- 14
 
 zelev <- get_elev_raster(data, z = z, clip = "location")
 
@@ -47,31 +47,27 @@ hm <- mat
 
 w <- nrow(hm)
 h <- ncol(hm)
- 
+
 wr <- w / max(c(w,h))
 hr <- h / max(c(w,h))
 
-pal <- "flag"
-#3871ef light blue
-#061B4A true blue from flag
-colors <- c("#061B4A", "#3871ef", "#FFB70B", "white")
 
 rgl::rgl.close()
 
 hm %>%
-  height_shade(texture = grDevices::colorRampPalette(colors, bias = 2.5)(256)) %>%
+  height_shade(texture = grDevices::colorRampPalette(rev(c("gold", "grey60", "white")), bias = .5)(256)) %>%
   #height_shade(texture = (grDevices::colorRampPalette(colors))(256)) %>%
   #add_shadow(lamb_shade(hm)) %>%
   #add_shadow() %>%
   #add_shadow(ray_shade(hm, multicore = TRUE, sunaltitude = 80)) %>%
-  plot_3d(heightmap = hm, solid = FALSE, zscale = 10,
-          shadowdepth = -5000,
+  plot_3d(heightmap = hm, solid = FALSE, zscale = .5,
+          shadowdepth = 500,
           windowsize = c(800*wr,800*hr), 
           #shadowwidth = 100, 
           #shadowcolor = colors[1],
           phi = 90, zoom = 1, theta = 0, background = "white") 
 
-render_camera(phi = 90, zoom = 1, theta = 0)
+render_camera(phi = 90, zoom = .8, theta = 0)
 
 outfile <- glue("plots/{map}_{pal}_z{z}.png")
 
@@ -83,13 +79,15 @@ outfile <- glue("plots/{map}_{pal}_z{z}.png")
     outfile, parallel = TRUE, 
     samples = 300, 
     light = FALSE, interactive = FALSE,
+    # backgroundhigh = colors[1],
     #ambient_light = TRUE, backgroundhigh = colors[1],
     environment_light = "../bathybase/env/phalzer_forest_01_4k.hdr",
-    intensity_env = 2,
+    intensity_env = 1.75,
     rotate_env = 80,
     width = round(6000 * wr), height = round(6000 * hr)
   )
   end_time <- Sys.time()
+  cat(glue("Total time: {end_time - start_time}"))
 }
 
 
@@ -105,19 +103,19 @@ add_stuff <- function(pal, map, c, c_fun, t, markups = TRUE) {
     colors <- c_fun
   }
   
-  text_color <- colors[t]
+  text_color <- "grey40"
   
-  img <- image_read(glue("plots/{map}_{pal}_z10.png"))
+  img <- image_read(glue("plots/{map}_{pal}_z{z}.png"))
   
   # Title
-  img_ <- image_annotate(img, "Denali", weight = 700, 
-                         font = "Cinzel Decorative", location = "-1950+300",
-                         color = text_color, size = 400, gravity = "north")
+  img_ <- image_annotate(img, "White Sands", weight = 700, 
+                         font = "Cinzel Decorative", location = "+0+100",
+                         color = text_color, size = 300, gravity = "north")
   
   # Subtitle
-  img_ <- image_annotate(img_, "National Park\nand Preserve", font = "Cinzel Decorative",
-                         color = text_color, size = 125, gravity = "north",
-                         location = "-1950+900")
+  img_ <- image_annotate(img_, "National Park", font = "Cinzel Decorative",
+                         color = text_color, size = 150, gravity = "north",
+                         location = "+0+500")
   
   twitter <- fa("twitter", fill = text_color, fill_opacity = .5)
   grid.newpage()
@@ -153,31 +151,34 @@ add_stuff <- function(pal, map, c, c_fun, t, markups = TRUE) {
     # 
     world <- ne_countries(scale = "medium", returnclass = "sf")
     
-    water <- st_sfc(st_point(c(50, -150)), crs = "+proj=ortho +lat_0=50 +lon_0=-150") %>%
+    prj <- "+proj=ortho +lat_0=20 +lon_0=-100"
+    
+    water <- st_sfc(st_point(c(50, -150)), crs = prj) %>%
       st_buffer(., 6400000)
     
     spot <- st_centroid(data[1,])
     
     loc_plot <- ggplot(data = world) +
-      geom_sf(data = water, color = NA, fill = alpha(colors[2], .75)) +
-      geom_sf(fill = "#ffd46d", size = .1, color = "grey40") +
-      geom_sf(data = spot, fill = colors[1], stroke = 0,
-              size = 6, shape = 21) +
-      geom_sf(data = spot, fill = colors[2], stroke = 0,
-              size = 5, shape = 21) +
-      geom_sf(data = spot, fill = colors[3], stroke = 0,
-              size = 4, shape = 21) +
+      geom_sf(data = water, color = NA, fill = alpha(text_color, .75)) +
+      geom_sf(fill = "white", size = .1, color = "grey40") +
+      geom_sf(fill = alpha(colors[2], .75), size = .1, color = "grey40") +
       geom_sf(data = spot, fill = colors[4], stroke = 0,
+              size = 6, shape = 21) +
+      geom_sf(data = spot, fill = colors[3], stroke = 0,
+              size = 5, shape = 21) +
+      geom_sf(data = spot, fill = colors[2], stroke = 0,
+              size = 4, shape = 21) +
+      geom_sf(data = spot, fill = colors[1], stroke = 0,
               size = 3, shape = 21) +
-      coord_sf(crs = "+proj=ortho +lat_0=50 +lon_0=-150") +
+      coord_sf(crs = prj) +
       theme_void() 
     
     loc_plot
     ggsave(loc_plot, filename = glue("plots/{map}_inset.png"), w = 4*1.5, h = 3*1.5)
     inset <- image_read(glue("plots/{map}_inset.png"))
-    new_inset <- image_scale(inset, "x1000")
-    img_ <- image_composite(img_, new_inset, gravity = "south",
-                            offset = "+1750+700")
+    new_inset <- image_scale(inset, "x750")
+    img_ <- image_composite(img_, new_inset, gravity = "north",
+                            offset = "-1700+1300")
   }
   
   image_write(img_, glue("plots/{map}_titled_{pal}_highres.png"))
@@ -186,5 +187,5 @@ add_stuff <- function(pal, map, c, c_fun, t, markups = TRUE) {
   
 }
 
-add_stuff(pal = "flag", map = "denali", c = 8, c_fun = colors, t = 1, markups = TRUE)
+add_stuff(pal = "tam", map = "white_sands", c = 8, c_fun = colors, t = 6, markups = FALSE)
 #add_stuff(pal = "custom", map = "seattle", c = 8, c_fun = colors, t = 1, markups = FALSE)
