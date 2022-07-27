@@ -5,12 +5,17 @@ height_shade <- function (heightmap, texture1, texture2, range = NULL, keep_user
   
   t1 <- t1
   t2 <- t2
-  range1 <- c(0, max(heightmap, na.rm = TRUE))
-  range2 <- c(min(heightmap, na.rm = TRUE), 0)
+  # these were death valley
+  # range1 <- c(0, max(heightmap, na.rm = TRUE))
+  # range2 <- c(min(heightmap, na.rm = TRUE), 0)
+  
+  # these were uluru
+  range1 <- c(550, max(heightmap, na.rm = TRUE))
+  range2 <- c(min(heightmap, na.rm = TRUE), 550)
   
   # Sea level and above
               
-  tempfilename1 = tempfile()
+  tempfilename = tempfile()
 
   grDevices::png(tempfilename, width = nrow(heightmap), height = ncol(heightmap))
   graphics::par(mar = c(0, 0, 0, 0))
@@ -20,19 +25,6 @@ height_shade <- function (heightmap, texture1, texture2, range = NULL, keep_user
                   useRaster = TRUE, zlim = range2, add = TRUE)
   grDevices::dev.off()
   tempmap = png::readPNG(tempfilename)
-  
-  # Below sea level
-  
-  tempfilename2 = tempfile()
-  
-  grDevices::png(tempfilename, width = nrow(heightmap), height = ncol(heightmap))
-  graphics::par(mar = c(0, 0, 0, 0))
-  graphics::image(rayshader:::fliplr(heightmap), axes = FALSE, col = t2, 
-                  useRaster = TRUE, zlim = range2)
-  grDevices::dev.off()
-  tempmap2 = png::readPNG(tempfilename)
-  
-  x <- list(tempmap, tempmap2)
-  full <- raster::merge(tempmap, tempmap2)
-  return(full)
+
+  return(tempmap)
 }
